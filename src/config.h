@@ -24,7 +24,14 @@
 
 // # git pre-commit hook prevents git commits if the below two values are
 // non-empty
+#define HUNTER_WIFI_SSID ""
+#define HUNTER_WIFI_PASSWORD ""
+#define MQTT_USERNAME ""
+#define MQTT_PASSWORD ""
 
 #define MQTT_HOST_NAME "homeassistant.lan"
 #define MQTT_PORT 1883
-#define MQTT_CLIENT_NAME "hunterfan"
+#define MQTT_DEVICE_NAME "master-bedroom-fan"
+#define MQTT_BASE_TOPIC "homeassistant"
+
+// You typically don't have to change anything below this line

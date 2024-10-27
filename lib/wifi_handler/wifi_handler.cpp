@@ -51,3 +51,9 @@ WiFiStatus WiFiHandler::checkStatus() {
     }
     return WIFI_CHECK_PENDING;  // No action taken yet (still within interval)
 }
+
+String WiFiHandler::getWiFiStrength() { return String(WiFi.RSSI()); }
+
+String WiFiHandler::getWiFiSSID() { return WiFi.SSID(); }
+
+String WiFiHandler::getIPAddress() { return WiFi.localIP().toString();    }

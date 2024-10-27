@@ -39,6 +39,12 @@ class WiFiHandler {
 
     // Handle WiFi status and reconnection, callable from loop
     WiFiStatus checkStatus();
+
+    String getWiFiStrength();
+
+    String getWiFiSSID();
+
+    String getIPAddress();
 };
 
 #endif

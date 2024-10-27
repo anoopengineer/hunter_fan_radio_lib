@@ -16,25 +16,38 @@ volatile bool transmittedFlag = false;
 // counter to keep track of transmitted packets
 int count = 0;
 
-bool once = true;
-
 WiFiHandler wiFiHandler;
 MQTTHandler mqttHandler;
+
+MQTTTopics* mqttTopics;
 
 void toggleLight() {
     // TODO: set a local variable indicating this is togglelight button keypress
     //  that should be validated against in loop()
 
     // start transmitting the first packet
-    Serial.print(F("[CC1101] Sending first packet ... "));
+    Serial.print(F("[Main] Sending first packet ... "));
 
     // you can transmit C-string or Arduino string up to
     // 64 characters long
     byte byteArr[] = {0xaa, 0xaa, 0xaa};
     radio.fixedPacketLengthMode(sizeof(byteArr));
-    LOG("[CC1101] First packet size = " + String(sizeof(byteArr)), LOG_INFO,
+    LOG("[Main] First packet size = " + String(sizeof(byteArr)), LOG_INFO,
         true);
     transmissionState = radio.startTransmit(byteArr, sizeof(byteArr));
+    transmittedFlag = true;
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+    String topicStr = String(topic);
+    LOG("[Main] Message received on topic: " + topicStr, LOG_INFO, true);
+    // Convert the payload to a String
+    String message = String((char*)payload).substring(0, length);
+    LOG("[Main] Payload: " + message, LOG_INFO, true);
+
+    if (topicStr == mqttTopics->getLightCommandTopic() && message == "toggle") {
+        toggleLight();
+    }
 }
 
 // this function is called when a complete packet
@@ -45,9 +58,28 @@ void toggleLight() {
 ICACHE_RAM_ATTR
 #endif
 void setFlag(void) {
-    // we sent a packet, set the flag
-    transmittedFlag = true;
+    // transmittedFlag = true;
 }
+
+char* getChipId() {
+    uint32_t chipId = 0;
+    for (int i = 0; i < 17; i += 8) {
+        chipId |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+    }
+
+    // Allocate memory for the hex representation of chipId (8 characters + 1
+    // for null terminator)
+    static char chipIdStr[9];
+    snprintf(chipIdStr, sizeof(chipIdStr), "%08X", chipId);
+
+    return chipIdStr;
+}
+
+String getWiFiSSID() { return wiFiHandler.getWiFiSSID(); }
+
+String getWiFiStrength() { return wiFiHandler.getWiFiStrength(); }
+
+String getIPAddress() { return wiFiHandler.getIPAddress(); }
 
 void setup() {
     // Start Serial Connection
@@ -84,8 +116,28 @@ void setup() {
     wiFiHandler.setup(HUNTER_WIFI_SSID, HUNTER_WIFI_PASSWORD,
                       HUNTER_WIFI_CHECK_INTERVAL);
     if (wiFiHandler.connect()) {
+        String chipId = getChipId();
+        mqttTopics = new MQTTTopics(MQTT_BASE_TOPIC, MQTT_DEVICE_NAME, chipId);
+
+        DeviceDetails* deviceDetails = new DeviceDetails();
+        deviceDetails->setIdentifiers(chipId);
+        deviceDetails->setManufacturer("Anoop");
+#if defined(ESP8266)
+        deviceDetails->setModel("ESP8266");
+#elif defined(ESP32)
+        deviceDetails->setModel("ESP32");
+#else
+        deviceDetails->setModel("Unknown Model");
+#endif
+        deviceDetails->setName(MQTT_DEVICE_NAME);
+        deviceDetails->setSwVersion("1.0");
+        deviceDetails->setIpAddress(getIPAddress);
+        deviceDetails->setNetworkNameFunc(getWiFiSSID);
+        deviceDetails->setWifiSignalStrengthFunc(getWiFiStrength);
+
         mqttHandler.setup(MQTT_HOST_NAME, MQTT_PORT, HUNTER_MQTT_CHECK_INTERVAL,
-                          MQTT_CLIENT_NAME, MQTT_USERNAME, MQTT_PASSWORD);
+                          MQTT_DEVICE_NAME, MQTT_USERNAME, MQTT_PASSWORD,
+                          mqttTopics, deviceDetails, callback);
         mqttHandler.connect();  // Try to connect to MQTT server
     }
 }
@@ -114,18 +166,14 @@ void loop() {
         // RF switch is powered down etc.
         radio.finishTransmit();
 
-        if (once) {
-            once = false;
-            delay(5);
-            byte byteArr2[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
-                               0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
-                               0xb6, 0xd2, 0x49, 0xa4, 0x92, 0x49, 0xb6,
-                               0xd3, 0x6d, 0xb6, 0xd0};
-            radio.fixedPacketLengthMode(sizeof(byteArr2));
-            LOG("[CC1101] Second packet size = " + String(sizeof(byteArr2)),
-                LOG_INFO, true);
-            radio.startTransmit(byteArr2, sizeof(byteArr2));
-        }
+        delay(5);
+        byte byteArr2[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92, 0x4d, 0xa4,
+                           0x9b, 0x4d, 0xa6, 0x93, 0x49, 0xb6, 0xd2, 0x49, 0xa4,
+                           0x92, 0x49, 0xb6, 0xd3, 0x6d, 0xb6, 0xd0};
+        radio.fixedPacketLengthMode(sizeof(byteArr2));
+        LOG("[CC1101] Second packet size = " + String(sizeof(byteArr2)),
+            LOG_INFO, true);
+        radio.startTransmit(byteArr2, sizeof(byteArr2));
 
         // // send another one
         // Serial.print(F("[CC1101] Sending another packet ... "));
