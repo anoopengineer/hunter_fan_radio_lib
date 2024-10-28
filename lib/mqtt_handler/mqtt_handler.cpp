@@ -46,12 +46,12 @@ void MQTTHandler::initializeConnection() {
     mqttClient.publish(mqttTopics->getAvailabilityTopic().c_str(), "online");
     // mqttClient.subscribe(mqttTopics->getLightStateTopic().c_str());
     mqttClient.subscribe(mqttTopics->getLightCommandTopic().c_str());
+    mqttClient.subscribe(mqttTopics->getFanCommandTopic().c_str());
     // mqttClient.subscribe(mqttTopics->getFanStateTopic().c_str());
-    // mqttClient.subscribe(mqttTopics->getFanCommandTopic().c_str());
     // mqttClient.subscribe(mqttTopics->getFanPercentStateTopic().c_str());
-    // mqttClient.subscribe(mqttTopics->getFanPercentCommandTopic().c_str());
+    mqttClient.subscribe(mqttTopics->getFanPercentCommandTopic().c_str());
     // mqttClient.subscribe(mqttTopics->getFanModeStateTopic().c_str());
-    // mqttClient.subscribe(mqttTopics->getFanModeCommandTopic().c_str());
+    mqttClient.subscribe(mqttTopics->getFanModeCommandTopic().c_str());
 }
 
 void MQTTHandler::connect() {
@@ -89,7 +89,7 @@ bool MQTTHandler::isConnected() { return mqttClient.connected(); }
 void MQTTHandler::sendAutoDiscovery() {
     String syspayload = "";
     String lightPayload = "";
-    // String fanPayload = "";
+    String fanPayload = "";
     String infoSensorPayload = "";
 
     JsonDocument deviceJSON;
@@ -128,34 +128,40 @@ void MQTTHandler::sendAutoDiscovery() {
                              deviceDetails->getIdentifiers() + "-light";
     // lightJSON["state_topic"] = mqttTopics->getLightStateTopic();
     lightJSON["command_topic"] = mqttTopics->getLightCommandTopic();
-    lightJSON["payload_on"] = "toggle";
-    lightJSON["payload_off"] = "toggle";
+    lightJSON["payload_on"] = "on";
+    lightJSON["payload_off"] = "off";
     // lightJSON["availability_topic"] = mqttTopics->getAvailabilityTopic();
     // lightJSON["payload_available"] = "online";
     // lightJSON["payload_not_available"] = "offline";
     serializeJson(lightJSON, lightPayload);
 
-    // DynamicJsonDocument fanJSON(1024);
-    // fanJSON["device"] = deviceObj;
-    // fanJSON["name"] = "Fan";
-    // fanJSON["unique_id"] = "fancontrol_" + String(ESP.getChipId()) + "_fan";
+    LOG("[MQTT] Size of lightPayload = " + String(lightPayload.length()),
+        LOG_INFO, true);
+    JsonDocument fanJSON;
+    fanJSON["device"] = deviceObj;
+    fanJSON["name"] = "Fan";
+    fanJSON["unique_id"] = deviceDetails->getName() + "-" +
+                           deviceDetails->getIdentifiers() + "-fan";
     // fanJSON["state_topic"] = FAN_STATE_TOPIC;
-    // fanJSON["command_topic"] = FAN_COMMAND_TOPIC;
-    // fanJSON["payload_on"] = "on";
-    // fanJSON["payload_off"] = "off";
+    fanJSON["command_topic"] = mqttTopics->getFanCommandTopic();
+    fanJSON["payload_on"] = "on";
+    fanJSON["payload_off"] = "off";
     // fanJSON["percentage_state_topic"] = FAN_PERCENT_STATE_TOPIC;
-    // fanJSON["percentage_command_topic"] = FAN_PERCENT_COMMAND_TOPIC;
+    fanJSON["percentage_command_topic"] =
+        mqttTopics->getFanPercentCommandTopic();
     // fanJSON["speed_range_min"] = 1;
     // fanJSON["speed_range_max"] = 30;
     // fanJSON["preset_mode_state_topic"] = FAN_MODE_STATE_TOPIC;
-    // fanJSON["preset_mode_command_topic"] = FAN_MODE_COMMAND_TOPIC;
-    // JsonArray FAN_PRESET_MODES = fanJSON.createNestedArray("preset_modes");
-    // FAN_PRESET_MODES.add("Summer");
-    // FAN_PRESET_MODES.add("Winter");
+    fanJSON["preset_mode_command_topic"] = mqttTopics->getFanModeCommandTopic();
+    JsonArray FAN_PRESET_MODES = fanJSON["preset_modes"].to<JsonArray>();
+    FAN_PRESET_MODES.add("Summer");
+    FAN_PRESET_MODES.add("Winter");
     // fanJSON["availability_topic"] = AVAILABILITY_TOPIC;
     // fanJSON["payload_available"] = "online";
     // fanJSON["payload_not_available"] = "offline";
-    // serializeJson(fanJSON, fanPayload);
+    serializeJson(fanJSON, fanPayload);
+    LOG("[MQTT] Size of fanPayload = " + String(fanPayload.length()), LOG_INFO,
+        true);
 
     if (mqttClient.connected()) {
         LOG("Publishing to " + mqttTopics->getAvailabilityTopic() +
@@ -170,8 +176,12 @@ void MQTTHandler::sendAutoDiscovery() {
         mqttClient.publish(mqttTopics->getLightConfigTopic().c_str(),
                            lightPayload.c_str(), true);
         delay(100);
-        // mqttClient.publish(FAN_CONFIG_TOPIC.c_str(), fanPayload.c_str(),
-        // true); delay(100);
+        LOG("Publishing to " + mqttTopics->getFanConfigTopic() +
+                " data: " + String(fanPayload),
+            LOG_DEBUG, true);
+        mqttClient.publish(mqttTopics->getFanConfigTopic().c_str(),
+                           fanPayload.c_str(), true);
+        delay(100);
         // LOG("Publishing to " + mqttTopics->getInfoConfigTopic() +
         //         " data: " + String(infoSensorPayload),
         //     LOG_DEBUG, true);

@@ -7,12 +7,6 @@
 
 CC1101 radio = new Module(HUNTER_CSN, HUNTER_GDO0, RADIOLIB_NC, HUNTER_GDO2);
 
-// save transmission state between loops
-int transmissionState = RADIOLIB_ERR_NONE;
-
-// flag to indicate that a packet was sent
-volatile bool transmittedFlag = false;
-
 // counter to keep track of transmitted packets
 int count = 0;
 
@@ -21,32 +15,172 @@ MQTTHandler mqttHandler;
 
 MQTTTopics* mqttTopics;
 
-void toggleLight() {
-    // TODO: set a local variable indicating this is togglelight button keypress
-    //  that should be validated against in loop()
+// Function to send a packet and log the result
+void sendPacket(const byte* packet, size_t packetSize, uint32_t delayTime) {
+    // Set packet length for the radio
+    radio.fixedPacketLengthMode(packetSize);
 
-    // start transmitting the first packet
-    Serial.print(F("[Main] Sending first packet ... "));
+    // Transmit the packet
+    int state = radio.transmit(packet, packetSize);
+    if (state == RADIOLIB_ERR_NONE) {
+        // LOG("[Main] Packet transmitted successfully", LOG_INFO, true);
+    } else if (state == RADIOLIB_ERR_PACKET_TOO_LONG) {
+        LOG("[Main] Packet was too long. Transmission failed", LOG_ERROR, true);
+    } else {
+        LOG("[Main] Transmission failed with error: " + String(state),
+            LOG_ERROR, true);
+    }
 
-    // you can transmit C-string or Arduino string up to
-    // 64 characters long
-    byte byteArr[] = {0xaa, 0xaa, 0xaa};
-    radio.fixedPacketLengthMode(sizeof(byteArr));
-    LOG("[Main] First packet size = " + String(sizeof(byteArr)), LOG_INFO,
-        true);
-    transmissionState = radio.startTransmit(byteArr, sizeof(byteArr));
-    transmittedFlag = true;
+    // Wait for the specified delay after transmission
+    delayMicroseconds(delayTime);
 }
 
-void callback(char* topic, byte* payload, unsigned int length) {
+void fanOn() {
+    LOG("[Main] Fan On", LOG_INFO, true);
+    const byte preamble[] = {0xaa, 0xaa, 0xaa};
+    const byte payload1[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
+                             0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
+                             0xb6, 0xd2, 0x49, 0x24, 0x93, 0x49, 0xb6,
+                             0xdb, 0x6d, 0xa6, 0xd0};
+    const byte* packets[] = {preamble, payload1, preamble,
+                             payload1, preamble, payload1};
+    const size_t packetSizes[] = {sizeof(preamble), sizeof(payload1),
+                                  sizeof(preamble), sizeof(payload1),
+                                  sizeof(preamble), sizeof(payload1)};
+    const uint32_t postTxDelay[] = {5209, 25666, 5210, 28503, 5208, 200000};
+
+    for (int i = 0; i < 6; i++) {
+        sendPacket(packets[i], packetSizes[i], postTxDelay[i]);
+    }
+}
+
+void fanOff() {
+    LOG("[Main] Fan Off", LOG_INFO, true);
+    const byte preamble[] = {0xaa, 0xaa, 0xaa};
+    const byte payload1[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
+                             0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
+                             0xb6, 0xd2, 0x49, 0x24, 0x92, 0x4d, 0xb6,
+                             0xdb, 0x6d, 0xb6, 0x90};
+
+    const byte payload2[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
+                             0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
+                             0xb6, 0xd2, 0x49, 0x26, 0x92, 0x69, 0xb6,
+                             0xdb, 0x4d, 0xb4, 0xd0};
+
+    const byte* packets[] = {preamble, payload1, preamble, payload1,
+                             preamble, payload2, preamble, payload2};
+    const size_t packetSizes[] = {
+        sizeof(preamble), sizeof(payload1), sizeof(preamble), sizeof(payload1),
+        sizeof(preamble), sizeof(payload2), sizeof(preamble), sizeof(payload2)};
+
+    const uint32_t postTxDelay[] = {5212, 25669, 5211, 27456,
+                                    5211, 25665, 5210, 200000};
+
+    for (int i = 0; i < 8; i++) {
+        // LOG("[Main] Sending packet number " + String(i + 1), LOG_INFO, true);
+        sendPacket(packets[i], packetSizes[i], postTxDelay[i]);
+    }
+}
+
+void lightOn() {
+    LOG("[Main] Light On", LOG_INFO, true);
+    const byte preamble[] = {0xaa, 0xaa, 0xaa};
+    const byte payload1[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
+                             0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
+                             0xb6, 0xd2, 0x49, 0xa4, 0x92, 0x49, 0xb6,
+                             0xd3, 0x6d, 0xb6, 0xd0};
+    const byte payload2[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
+                             0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
+                             0xb6, 0xd2, 0x49, 0x26, 0x93, 0x69, 0xb6,
+                             0xdb, 0x4d, 0xa4, 0xd0};
+
+    const byte* packets[] = {preamble, payload1, preamble, payload1,
+                             preamble, payload2, preamble, payload2};
+    const size_t packetSizes[] = {
+        sizeof(preamble), sizeof(payload1), sizeof(preamble), sizeof(payload1),
+        sizeof(preamble), sizeof(payload2), sizeof(preamble), sizeof(payload2)};
+
+    const uint32_t postTxDelay[] = {5208, 25666, 5210, 28503,
+                                    5208, 25666, 5208, 200000};
+
+    for (int i = 0; i < 8; i++) {
+        // LOG("[Main] Sending packet number " + String(i + 1), LOG_INFO, true);
+        sendPacket(packets[i], packetSizes[i], postTxDelay[i]);
+    }
+}
+
+void lightOff() {
+    LOG("[Main] Light Off", LOG_INFO, true);
+    const byte preamble[] = {0xaa, 0xaa, 0xaa};
+    const byte payload1[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
+                             0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
+                             0xb6, 0xd2, 0x4d, 0x24, 0x92, 0x49, 0xb6,
+                             0x9b, 0x6d, 0xb6, 0xd0};
+    const byte payload2[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
+                             0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
+                             0xb6, 0xd2, 0x49, 0x26, 0x93, 0x69, 0xb6,
+                             0xdb, 0x4d, 0xa4, 0xd0};
+
+    const byte* packets[] = {preamble, payload1, preamble, payload1,
+                             preamble, payload2, preamble, payload2};
+    const size_t packetSizes[] = {
+        sizeof(preamble), sizeof(payload1), sizeof(preamble), sizeof(payload1),
+        sizeof(preamble), sizeof(payload2), sizeof(preamble), sizeof(payload2)};
+
+    const uint32_t postTxDelay[] = {5210, 25666, 5210, 25666,
+                                    5209, 25666, 5209, 200000};
+
+    for (int i = 0; i < 8; i++) {
+        // LOG("[Main] Sending packet number " + String(i + 1), LOG_INFO, true);
+        sendPacket(packets[i], packetSizes[i], postTxDelay[i]);
+    }
+}
+
+void toggleLight_working_version() {
+    const byte preamble[] = {0xaa, 0xaa, 0xaa};
+    const byte payload1[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
+                             0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
+                             0xb6, 0xd2, 0x49, 0xa4, 0x92, 0x49, 0xb6,
+                             0xd3, 0x6d, 0xb6, 0xd0};
+    const byte payload2[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92,
+                             0x4d, 0xa4, 0x9b, 0x4d, 0xa6, 0x93, 0x49,
+                             0xb6, 0xd2, 0x49, 0x26, 0x93, 0x69, 0xb6,
+                             0xdb, 0x4d, 0xa4, 0xd0};
+
+    const byte* packets[] = {preamble, payload1, preamble, payload1,
+                             preamble, payload2, preamble, payload2};
+    const size_t packetSizes[] = {
+        sizeof(preamble), sizeof(payload1), sizeof(preamble), sizeof(payload1),
+        sizeof(preamble), sizeof(payload2), sizeof(preamble), sizeof(payload2)};
+
+    const uint32_t postTxDelay[] = {5210, 25666, 5210, 28519,
+                                    5209, 25666, 5209, 10000};
+
+    for (int i = 0; i < 8; i++) {
+        LOG("[Main] Sending packet number " + String(i + 1), LOG_INFO, true);
+        sendPacket(packets[i], packetSizes[i], postTxDelay[i]);
+    }
+}
+
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
     String topicStr = String(topic);
     LOG("[Main] Message received on topic: " + topicStr, LOG_INFO, true);
     // Convert the payload to a String
     String message = String((char*)payload).substring(0, length);
     LOG("[Main] Payload: " + message, LOG_INFO, true);
 
-    if (topicStr == mqttTopics->getLightCommandTopic() && message == "toggle") {
-        toggleLight();
+    if (topicStr == mqttTopics->getLightCommandTopic()) {
+        if (message == "on") {
+            lightOn();
+        } else {
+            lightOff();
+        }
+    } else if (topicStr == mqttTopics->getFanCommandTopic()) {
+        if (message == "on") {
+            fanOn();
+        } else {
+            fanOff();
+        }
     }
 }
 
@@ -137,55 +271,28 @@ void setup() {
 
         mqttHandler.setup(MQTT_HOST_NAME, MQTT_PORT, HUNTER_MQTT_CHECK_INTERVAL,
                           MQTT_DEVICE_NAME, MQTT_USERNAME, MQTT_PASSWORD,
-                          mqttTopics, deviceDetails, callback);
+                          mqttTopics, deviceDetails, mqttCallback);
         mqttHandler.connect();  // Try to connect to MQTT server
     }
 }
 
 void loop() {
     // check if the previous transmission finished
-    if (transmittedFlag) {
-        // reset flag
-        transmittedFlag = false;
+    // if (transmittedFlag) {
+    //     // reset flag
+    //     transmittedFlag = false;
 
-        if (transmissionState == RADIOLIB_ERR_NONE) {
-            // packet was successfully sent
-            Serial.println(F("transmission finished!"));
+    //     // // send another one
+    //     // Serial.print(F("[CC1101] Sending another packet ... "));
 
-            // NOTE: when using interrupt-driven transmit method,
-            //       it is not possible to automatically measure
-            //       transmission data rate using getDataRate()
-
-        } else {
-            Serial.print(F("failed, code "));
-            Serial.println(transmissionState);
-        }
-
-        // clean up after transmission is finished
-        // this will ensure transmitter is disabled,
-        // RF switch is powered down etc.
-        radio.finishTransmit();
-
-        delay(5);
-        byte byteArr2[] = {0xd2, 0x69, 0xa6, 0xd3, 0x6d, 0xa6, 0x92, 0x4d, 0xa4,
-                           0x9b, 0x4d, 0xa6, 0x93, 0x49, 0xb6, 0xd2, 0x49, 0xa4,
-                           0x92, 0x49, 0xb6, 0xd3, 0x6d, 0xb6, 0xd0};
-        radio.fixedPacketLengthMode(sizeof(byteArr2));
-        LOG("[CC1101] Second packet size = " + String(sizeof(byteArr2)),
-            LOG_INFO, true);
-        radio.startTransmit(byteArr2, sizeof(byteArr2));
-
-        // // send another one
-        // Serial.print(F("[CC1101] Sending another packet ... "));
-
-        // // you can transmit C-string or Arduino string up to
-        // // 256 characters long
-        // String str = "Hello World! #" + String(count++);
-        // radio.setOOK(true);
-        // radio.setCrcFiltering(false);
-        // radio.disableSyncWordFiltering();
-        // transmissionState = radio.startTransmit(str);
-    }
+    //     // // you can transmit C-string or Arduino string up to
+    //     // // 256 characters long
+    //     // String str = "Hello World! #" + String(count++);
+    //     // radio.setOOK(true);
+    //     // radio.setCrcFiltering(false);
+    //     // radio.disableSyncWordFiltering();
+    //     // transmissionState = radio.startTransmit(str);
+    // }
     wiFiHandler.checkStatus();
     delay(100);
     mqttHandler.checkStatus();
