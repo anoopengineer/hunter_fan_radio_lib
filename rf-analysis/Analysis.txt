@@ -1,0 +1,174 @@
+# Old Switch
+We are ignoring the aaaaaa preamble here
+Common across all messeges - d269a6d36da6924da49b4da69349b6d24 <- this should be the sync bit
+
+There appears to be delimiters of ascii character i, m, I, M in the data.
+i: 0x69
+m: 0x6D
+I: 0x49
+M: 0x4D
+
+
+Fan 1
+
+d269a6d36da6924da49b4da69349b6d249249269b6db6db4d0
+d269a6d36da6924da49b4da69349b6d249249269b6db6db4d0
+
+Fan 2
+d269a6d36da6924da49b4da69349b6d249249349b6db6da6d0
+d269a6d36da6924da49b4da69349b6d249249349b6db6da6d0
+d269a6d36da6924da49b4da69349b6d249249349b6db6da6d0
+
+
+Fan Off
+d269a6d36da6924da49b4da69349b6d24924924db6db6db690
+d269a6d36da6924da49b4da69349b6d24924924db6db6db690
+d269a6d36da6924da49b4da69349b6d249269269b6db4db4d0
+d269a6d36da6924da49b4da69349b6d249269269b6db4db4d0
+
+
+Light Off
+d269a6d36da6924da49b4da69349b6d24d249249b69b6db6d0
+d269a6d36da6924da49b4da69349b6d24d249249b69b6db6d0
+d269a6d36da6924da49b4da69349b6d249269369b6db4da4d0
+d269a6d36da6924da49b4da69349b6d249269369b6db4da4d0
+
+
+Light On
+d269a6d36da6924da49b4da69349b6d249a49249b6d36db6d0
+d269a6d36da6924da49b4da69349b6d249269369b6db4da4d0
+
+
+# New switch
+
+Light Switch
+6da6da49b6da4d249a6db4934d34da4936924924da4db6db68 - appears to be same length 25 bytes
+6d a6 da 49 b6 da 4d 24 9a 6d b4 93 4d 34 da 49 36 92 49 24 da 4d b6 db 68
+
+Checking if the same delimiters are present here: i, m, I, M in the data.
+i: 0x69
+m: 0x6D
+I: 0x49
+M: 0x4D
+Nope doesn't look like it.
+
+
+# Hypothesis 1
+---------
+Let's remove the potential sync bits d269a6d36da6924da49b4da69349b6d24 from all message and look how they look
+d269a6d36da6924da49b4da69349b6d24
+Fan 1
+
+9249 269b 6db6 db4d0
+9249 269b 6db6 db4d0
+
+Fan 2
+9249349b6db6da6d0
+9249349b6db6da6d0
+9249349b6db6da6d0
+
+
+Fan Off
+924924db6db6db690
+924924db6db6db690
+9269269b6db4db4d0
+9269269b6db4db4d0
+
+
+Light Off
+d249249b69b6db6d0 
+d249249b69b6db6d0
+9269369b6db4da4d0
+9269369b6db4da4d0
+
+
+Light On
+9a49249b6d36db6d0
+9269369b6db4da4d0
+
+
+Light Off bits that starts with D2 is definitely an anomaly here. Is there a chance that those are corrupted? You need to check if this is possible.
+
+
+d269a6d36da6924da49b4da69349b6d24 has odd number of nibbles. There is no way this is sync portion. I need to expand the sync bit by 1 and assume the Light off that starts with D2 is an anomaly.
+
+# Hypothesis 2
+--------------------
+
+lets assume that the sync bits are d269a6d36da6924da49b4da69349b6d249
+
+
+
+Fan 1
+
+2492 69b6 db6d b4d0
+2492 69b6 db6d b4d0
+
+Fan 2
+2493 49b6 db6d a6d0
+2493 49b6 db6d a6d0
+2493 49b6 db6d a6d0
+
+
+Fan Off
+2492 4db6 db6d b690
+2492 4db6 db6d b690
+2692 69b6 db4d b4d0
+2692 69b6 db4d b4d0
+
+
+Light Off
+2693 69b6 db4d a4d0
+2693 69b6 db4d a4d0
+
+
+Light On
+a492 49b6 d36d b6d0
+2693 69b6 db4d a4d0
+
+
+b6 appears in end of all nibbles - looks like a delimiter
+
+# Hypothesis 3
+--------------------
+There appears to be delimiters of ascii character i, m, I, M in the data.
+i: 0x69
+m: 0x6D
+I: 0x49
+M: 0x4D
+
+Common across all messeges - 
+d2 i  a6 d3 m  a6 92 M  a4 9b M  a6 93 I  b6 d2
+
+
+
+Fan 1
+
+I  24 92 i  b6 db m  b4 d0
+I  24 92 i  b6 db m  b4 d0
+
+Fan 2
+I  24 93 I  b6 db m  a6 d0
+I  24 93 I  b6 db m  a6 d0
+I  24 93 I  b6 db m  a6 d0 
+
+
+
+Fan Off
+I  24 92 M  b6 db m  b6 90
+I  24 92 M  b6 db m  b6 90
+I  26 92 i  b6 db M  b4 d0
+I  26 92 i  b6 db M  b4 d0
+
+
+Light Off
+M  24 92 I  b6 9b m  b6 d0
+M  24 92 I  b6 9b m  b6 d0
+I  26 93 i  b6 db M  a4 d0
+I  26 93 i  b6 db M  a4 d0
+
+
+Light On
+I  a4 92 I  b6 d3 m  b6 d0
+I  26 93 i  b6 db M  a4 d0
+
