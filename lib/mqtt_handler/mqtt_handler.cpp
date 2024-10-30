@@ -149,8 +149,8 @@ void MQTTHandler::sendAutoDiscovery() {
     // fanJSON["percentage_state_topic"] = FAN_PERCENT_STATE_TOPIC;
     fanJSON["percentage_command_topic"] =
         mqttTopics->getFanPercentCommandTopic();
-    // fanJSON["speed_range_min"] = 1;
-    // fanJSON["speed_range_max"] = 30;
+    fanJSON["speed_range_min"] = 1;
+    fanJSON["speed_range_max"] = 4;
     // fanJSON["preset_mode_state_topic"] = FAN_MODE_STATE_TOPIC;
     fanJSON["preset_mode_command_topic"] = mqttTopics->getFanModeCommandTopic();
     JsonArray FAN_PRESET_MODES = fanJSON["preset_modes"].to<JsonArray>();

@@ -10,7 +10,7 @@ int count = 0;
 
 WiFiHandler wiFiHandler;
 MQTTHandler mqttHandler;
-RFHandler rfHandler(HUNTER_CSN, HUNTER_GDO0, HUNTER_GDO2);
+RFHandler rfHandler(HUNTER_CSN, HUNTER_GDO0, HUNTER_GDO2, MESSAGE_REPEAT_COUNT);
 
 MQTTTopics* mqttTopics;
 
@@ -37,10 +37,27 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
             rfHandler.fanOff();
         }
         processed = true;
+    } else if (topicStr == mqttTopics->getFanPercentCommandTopic()) {
+        // Check if the message contains only digits
+        bool isValid = true;
+        for (size_t i = 0; i < message.length(); i++) {
+            if (!isdigit(message[i])) {
+                isValid = false;
+                break;
+            }
+        }
+
+        if (isValid) {
+            int value = message.toInt();
+            rfHandler.setFanSpeed(value);
+        } else {
+            LOG("[Main] Message contains non-numeric characters.", LOG_ERROR,
+                true);
+        }
     }
     if (processed) {
         // add a delay so that the RF receiver doesn't hang
-        delay(2000);
+        delay(1000);
     }
 }
 
